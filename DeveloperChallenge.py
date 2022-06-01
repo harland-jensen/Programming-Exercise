@@ -68,8 +68,8 @@ def receive_status(token):
     """
     receive_status()
 
-    Function which prints the status of successful and unsuccessful sms messages that have been sent in the past 
-    three months
+    Function which prints the total number of successful and unsuccessful sms messages that have been sent 
+    in the past three months
 
     Params: 
     Token (string): User's mailjet token
@@ -142,7 +142,7 @@ def initialise_reader():
 
     Csv file is assumed to have a row of headers on the first line, followed by data. 
     Each line in the csv is checked to ensure it has four fields, if not user is notified and the program
-    will exit with status 2
+    will exit with status 2. 
     
     """
     if len(sys.argv) == 1: 
@@ -173,7 +173,7 @@ def initialise_reader():
                 print("CSV incorrectly formatted, should be: [client name, state, mobile number, message]")
                 exit(2)
             validate_line(line)
-            #send_message(token, line)
+            send_message(token, line)
 
         receive_status(token)
         generate_csv(token, timeBefore)
