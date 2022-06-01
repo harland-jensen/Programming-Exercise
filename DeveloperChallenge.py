@@ -123,7 +123,6 @@ def generate_csv(token, timeBefore):
     url = "https://api.mailjet.com/v4/sms?StatusCode=4,5,6,7,8,9,10,11,12,13,14"
 
     stats = requests.get(url, headers = headers)
-    print(stats.text)
     with open('UnsuccessfulSends.csv', 'w') as file:
         writer = csv.writer(file)
         writer.writerow([stats.text])
