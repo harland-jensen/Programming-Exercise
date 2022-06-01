@@ -13,6 +13,16 @@ def get_file_name():
     print("Enter a filename:")
     return input()      
 
+def get_token():
+    """
+    get_token()
+    Prompts user for token 
+    Returns: 
+    string: Given token
+    """
+    print("Enter a token:")
+    return input()    
+
 def validate_file(file):
     """
     validate_file(file)
@@ -32,17 +42,17 @@ def validate_file(file):
         print("Invalid file address")
         return 0
 
-def send_message(line):
+def send_message(token, line):
     """
     send_message(line)
 
     Function which attempts to send an sms using the mailjet API.
 
     Params:
+    Token (string): User's mailjet token
     Line (List): List of fields obtained from a line of the provided csv file
 
     """
-    token = ***REMOVED***
     (clientName, state, number, message) = line
     print(clientName, state, number, message)
     headers = {"Authorization" : f"Bearer {token}", 'Content-Type' : 'application/json'}
@@ -54,18 +64,20 @@ def send_message(line):
         })
     response = requests.post(url, data = data, headers = headers)
    
-def receive_status():
+def receive_status(token):
     """
     receive_status()
 
     Function which prints the status of successful and unsuccessful sms messages that have been sent in the past 
     three months
+
+    Params: 
+    Token (string): User's mailjet token
     """
-    token = ***REMOVED***
     headers = {"Authorization" : f"Bearer {token}"}
     
-    successUrl = f"https://api.mailjet.com/v4/sms/count?StatusCode=1,2,3"
-    unsuccessUrl = f"https://api.mailjet.com/v4/sms/count?StatusCode=4,5,6,7,8,9,10,11,12,13,14"
+    successUrl = "https://api.mailjet.com/v4/sms/count?StatusCode=1,2,3"
+    unsuccessUrl = "https://api.mailjet.com/v4/sms/count?StatusCode=4,5,6,7,8,9,10,11,12,13,14"
     successfulSends = requests.get(successUrl, headers = headers)
     unsuccessfulSends = requests.get(unsuccessUrl, headers = headers)
 
@@ -91,32 +103,33 @@ def validate_line(line):
     try:
         #Establish whether provided phone number meets format required by the Mailjet API
         match = re.search("[+]\d{11}", line[2])
-        print(match.group())
     except AttributeError:
         print("Unable to process number, should be of format [+ : Area Code : Number]")
         exit(3)
 
-def generate_csv(timeBefore):
+def generate_csv(token, timeBefore):
     """
     generate_csv(timeBefore)
 
-    Function which creates a csv of sms messages which failed to send correctly. 
+    Function which creates a csv of sms messages which failed to send correctly. This csv is generated from 
+    messages the user sent in the past three months.
+    csv is named UnsuccessfulSends.csv
 
     Params: 
+    Token (string): User's mailjet token
     timeBefore (int): Integer representing time before the program was run.
     """
+    headers = {"Authorization" : f"Bearer {token}"}
+    url = "https://api.mailjet.com/v4/sms?StatusCode=4,5,6,7,8,9,10,11,12,13,14"
 
-    token = ***REMOVED***
-    timeAfter = int(time.time())
-    headers = {"Authorization" : f"Bearer {token}", 'Content-Type': 'application/json'}
-    data = json.dumps({
-        'FromTS' : timeBefore, 
-        'ToTS' : timeAfter})
-    url = "https://api.mailjet.com/v4/sms/export"
-    response = requests.post(url, headers=headers, data = data)
-    id = json.loads(response.text)['ID']
-    urlResponse = requests.get(url = f'https://api.mailjet.com/v4/sms/export/{id}', headers = {"Authorization" : f"Bearer {token}"} )
-    print(urlResponse.text)
+    stats = requests.get(url, headers = headers)
+    print(stats.text)
+    with open('UnsuccessfulSends.csv', 'w') as file:
+        writer = csv.writer(file)
+        writer.writerow([stats.text])
+
+
+    
 
 
 def initialise_reader():
@@ -126,12 +139,21 @@ def initialise_reader():
     Function which prompts the user for a filename if not provided as a command-line argument, and continually
     prompts user for a correct filename if it is not able to be opened. Then proceeds to send messages for each
     line in the provided csv file. 
+
+    Csv file is assumed to have a row of headers on the first line, followed by data. 
+    Each line in the csv is checked to ensure it has four fields, if not user is notified and the program
+    will exit with status 2
     
     """
     if len(sys.argv) == 1: 
         file = get_file_name()
+        token = get_token()
+    elif len(sys.argv) == 2:
+        file = sys.argv[1]
+        token = get_token()
     else:
         file = sys.argv[1]
+        token = sys.argv[2]
 
     while validate_file(file) != 1:
         file = get_file_name()
@@ -143,12 +165,18 @@ def initialise_reader():
 
         #Obtain headers-> Should be name, state, mobile#, message
         headers = next(csvreader)
+        timeBefore = int(time.time())
+
         for line in csvreader:
-            timeBefore = int(time.time())
+            #Check csv has four fields of data
+            if (len(line) != 4):
+                print("CSV incorrectly formatted, should be: [client name, state, mobile number, message]")
+                exit(2)
             validate_line(line)
-            send_message(line)
-            receive_status()
-            generate_csv(timeBefore)
+            #send_message(token, line)
+
+        receive_status(token)
+        generate_csv(token, timeBefore)
 
 def main():
     """
